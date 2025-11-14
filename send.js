@@ -76,7 +76,7 @@ async function sendSingleMessage(username, question, num) {
     const data = new URLSearchParams({
         username,
         question,
-        deviceId: process.env.DEVICE_ID
+        deviceId: crypto.randomUUID()
     });
 
     return axios.post("https://ngl.link/api/submit", data, {
