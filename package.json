@@ -1,0 +1,15 @@
+{
+  "name": "ngl-spammer",
+  "version": "1.0.0",
+  "description": "NGL Spammer Terminal - Node.js Version",
+  "main": "server.js",
+  "scripts": {
+    "start": "node send.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "path": "^0.12.7"
+  }
+}

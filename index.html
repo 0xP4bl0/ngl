@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NGL Spammer Terminal - Node.js</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, rgb(62, 2, 70) 20%, rgb(39, 0, 37) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background: linear-gradient(130deg, red, white);
+            width: 100%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        img {
+            height: 60px;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin: 10px auto;
+            position: relative;
+            width: 80%;
+        }
+        .inp {
+            width: 100%;
+            padding: 14px 12px;
+            border: 2px solid #bbb;
+            border-radius: 10px;
+            background: transparent;
+            text-align: center;
+        }
+        .result {
+            background-color: #0d0d0d;
+            color: #33ff33;
+            width: 100%;
+            max-width: 500px;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 6px;
+            border: 2px solid #333;
+            white-space: pre-wrap;
+        }
+        textarea {
+            width: 100%;
+            height: 160px;
+            background-color: #0d0d0d;
+            color: #33ff33;
+            font-family: courier;
+            border: none;
+            outline: none;
+            resize: none;
+        }
+        .cursor {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .success-text { color: cyan; }
+        .fail-text { color: red; }
+        .normal-text { color: #33ff33; }
+        .warn-text { color: yellow; }
+        .error-text { color: #ff5555; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <img src="https://framerusercontent.com/images/I5OG1V7seR2tatnsaXFQ2fIQpHA.png" />
+    <form onsubmit="return false;">
+        <div class="input-group">
+            <input type="text" id="username" class="inp" placeholder="Username">
+        </div>
+        <div class="input-group">
+            <input type="text" id="message" class="inp" placeholder="Message">
+        </div>
+        <div class="input-group">
+            <input type="number" id="count" class="inp" placeholder="Message Count" value="10">
+        </div>
+        <button id="sendBtn" style="padding:12px 30px;border:none;background:red;border-radius:10px;color:white;cursor:pointer;">
+            Send Messages
+        </button>
+    </form>
+    <div class="result">
+        <div id="output-container" style="position:relative; height:160px; overflow-y:auto; background-color:#0d0d0d; border-radius:4px; padding:8px;">
+            <div id="output" style="font-family: courier; font-size: 14px; line-height: 1.4;"></div>
+            <span class="cursor" style="position:absolute; right:10px; bottom:10px;">█</span>
+        </div>
+    </div>
+</div>
+
+<script>
+let suc = 0;
+let fai = 0;
+document.addEventListener("DOMContentLoaded", () => {
+    const sendBtn = document.getElementById("sendBtn");
+    const output = document.getElementById("output");
+    const outputContainer = document.getElementById("output-container");
+    let queue = Promise.resolve();
+
+    function queueOutput(text, className = "normal-text") {
+        queue = queue.then(() => typeLine(text, className));
+        return queue;
+    }
+
+    function typeLine(text, className = "normal-text", delay = 12) {
+        return new Promise(resolve => {
+            const lineElement = document.createElement("div");
+            lineElement.className = className;
+            output.appendChild(lineElement);
+            let i = 0;
+            function step() {
+                if (i < text.length) {
+                    lineElement.textContent += text[i];
+                    i++;
+                    outputContainer.scrollTop = outputContainer.scrollHeight;
+                    setTimeout(step, delay);
+                } else {
+                    resolve();
+                }
+            }
+            step();
+        });
+    }
+
+    function startStream(username, message, count) {
+        const url = `/api/send-stream?username=${encodeURIComponent(username)}&question=${encodeURIComponent(message)}&count=${count}`;
+        const stream = new EventSource(url);
+
+        stream.onmessage = (event) => {
+            if (!event.data) return;
+            const data = JSON.parse(event.data);
+            const timestamp = new Date().toLocaleTimeString();
+            if (data.type === "start") queueOutput("Starting...", "normal-text");
+            if (data.type === "cd") queueOutput(`> ${data.message}`, "normal-text");
+            if (data.type === "success") queueOutput(`[${timestamp}] Message ${data.id} SUCCESS`, "success-text", suc++);
+            if (data.type === "fail") queueOutput(`[${timestamp}] Message ${data.id} FAILED`, "fail-text", fai++);
+            if (data.type === "warn") queueOutput(`[${timestamp}] ${data.message}`, "warn-text");
+            if (data.type === "done") {
+                queueOutput("Completed all messages!", "normal-text");
+                queueOutput(`SUCCESS: ${suc}, FAIL: ${fai}`);
+                stream.close();
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Send Messages";
+            }
+        };
+        stream.onerror = () => {
+            queueOutput("[WARN] Connection lost. Retrying...", "warn-text");
+            stream.close();
+            setTimeout(() => startStream(username, message, count), 1000);
+        };
+    }
+
+    sendBtn.addEventListener("click", () => {
+        const username = document.getElementById("username").value.trim();
+        const message = document.getElementById("message").value.trim();
+        let count = parseInt(document.getElementById("count").value);
+        if (!username || !message) { queueOutput("[ERROR] Missing username or message", "error-text"); return; }
+        if (isNaN(count) || count <= 0) count = 1;
+        sendBtn.disabled = true;
+        sendBtn.innerText = "Sending...";
+        output.innerHTML = "";
+        startStream(username, message, count);
+    });
+
+    queueOutput("NGL Spammer Terminal Booting...", "normal-text");
+    queueOutput("Made by: Antonio Y Gomez", "normal-text");
+});
+</script>
+</body>
+</html>
