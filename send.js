@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -18,7 +20,7 @@ app.get('/api/send-stream', async (req, res) => {
 
     const username = req.query.username;
     const question = req.query.question;
-    const count = parseInt(req.query.count);
+    const count = parseInt(req.query.count) || 1;
 
     res.write(`data: ${JSON.stringify({ type: "start" })}\n\n`);
 
@@ -48,13 +50,13 @@ async function sendSingleMessage(username, question, num) {
     const data = new URLSearchParams({
         username,
         question,
-        deviceId: "ada4122a-1453-4c73-b359-5822b9448d8d"
+        deviceId: process.env.DEVICE_ID
     });
 
     return axios.post("https://ngl.link/api/submit", data, {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla"
+            "User-Agent": "Mozilla/5.0"
         }
     });
 }

@@ -152,6 +152,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (data.type === "done") {
                 queueOutput("Completed all messages!", "normal-text");
                 queueOutput(`SUCCESS: ${suc}, FAIL: ${fai}`);
+                suc=0
+                fai=0
                 stream.close();
                 sendBtn.disabled = false;
                 sendBtn.innerText = "Send Messages";
